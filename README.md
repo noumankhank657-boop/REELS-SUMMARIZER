@@ -24,7 +24,7 @@ Start the app:
 uvicorn app:app --reload
 ```
 
-Open <http://127.0.0.1:8000>, enter the password, paste public Instagram reel links (one per line), choose a transcription model, and click **Transcribe reels**. The first use downloads the selected Whisper model. The `tiny` model is fastest on CPU; `small` is usually more accurate but slower. Transcripts are saved under `data/`. Each saved reel has its own export-format dropdown for a PDF or Markdown file and a delete button that asks for confirmation. The batch PDF download is still available after processing.
+Open <http://127.0.0.1:8000>, enter the password, paste public Instagram reel links (one per line), choose a transcription model, and click **Transcribe reels**. The first use downloads the selected Whisper model. The `tiny` model is fastest on CPU; `small` is usually more accurate but slower. Transcripts are saved under `data/`. Use the checkbox on each saved reel or **Select all reels** to choose multiple items. **Export selected** asks whether to create one combined PDF or Markdown file; **Delete selected** asks for confirmation before deleting them. Each reel also has its own PDF/Markdown export and delete controls. The batch PDF download remains available after processing.
 
 ## Deploy on Vercel
 

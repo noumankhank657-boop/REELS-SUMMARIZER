@@ -45,7 +45,25 @@
     .count { color:var(--muted); font-size:12px }
     .notes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px }
     .note { padding:19px; border:1px solid var(--line); border-radius:15px; background:var(--paper) }
-    .note h3 { margin:0 0 16px; font-size:17px; letter-spacing:-.02em }
+    .note-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px }
+    .note h3 { margin:0; font-size:17px; letter-spacing:-.02em }
+    .select-reel { display:flex; align-items:center; gap:6px; margin:0; color:var(--muted); font-size:11px; font-weight:650; cursor:pointer }
+    .select-reel input, .select-all input { width:16px; height:16px; margin:0; accent-color:#6d9f42; cursor:pointer }
+    .selection-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin:0 0 14px; padding:12px 14px; border:1px solid var(--line); border-radius:12px; background:#fff }
+    .select-all { display:flex; align-items:center; gap:8px; margin:0; font-size:13px; cursor:pointer }
+    .selection-count { margin-right:auto; color:var(--muted); font-size:12px }
+    .selection-actions { display:flex; flex-wrap:wrap; gap:8px }
+    .selection-actions button, .export-dialog button { min-height:38px; padding:8px 12px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); font-size:12px; font-weight:750; cursor:pointer }
+    .selection-actions button:hover, .export-dialog button:hover { background:var(--soft) }
+    .selection-actions button:disabled { opacity:.5; cursor:not-allowed }
+    .selection-actions .bulk-delete { color:var(--red); border-color:#efd6d1 }
+    .export-dialog { width:min(390px,calc(100vw - 32px)); padding:22px; border:1px solid var(--line); border-radius:16px; color:var(--ink); background:#fff; box-shadow:0 20px 70px #1114 }
+    .export-dialog::backdrop { background:#14221c88; backdrop-filter:blur(3px) }
+    .export-dialog h2 { margin:0 0 6px; font-size:21px }
+    .export-dialog p { margin:0 0 16px; color:var(--muted); font-size:13px }
+    .export-dialog label { margin:0 0 7px }
+    .dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px }
+    .dialog-actions .confirm-export { border-color:var(--green); background:var(--green); color:var(--green-dark) }
     .note-actions { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; margin-top:16px; padding-top:13px; border-top:1px solid #edf0ea }
     .note-actions select, .note-actions button { min-height:38px; padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); font-size:12px; font-weight:700 }
     .note-actions button { cursor:pointer }
@@ -103,6 +121,14 @@
 
     <section aria-labelledby="library-title">
       <div class="library-head"><div><div class="eyebrow">Saved locally or in your Vercel store</div><h2 id="library-title">Transcripts</h2></div><div id="note-count" class="count">Loading…</div></div>
+      <div class="selection-toolbar">
+        <label class="select-all"><input id="select-all" type="checkbox"> Select all reels</label>
+        <span id="selection-count" class="selection-count">0 selected</span>
+        <div class="selection-actions">
+          <button id="export-selected" type="button" disabled>Export selected</button>
+          <button id="delete-selected" class="bulk-delete" type="button" disabled>Delete selected</button>
+        </div>
+      </div>
       <div id="notes" class="notes"><div class="empty">Loading your saved transcripts…</div></div>
     </section>
   </main>
@@ -118,12 +144,30 @@
       <button id="login-submit" class="primary" type="submit">Continue</button>
     </form>
   </div>
+  <dialog id="export-dialog" class="export-dialog">
+    <form id="export-form">
+      <h2>Export selected reels</h2>
+      <p id="export-description">Choose one file format for the selected transcripts.</p>
+      <label for="bulk-format">File format</label>
+      <select id="bulk-format" required>
+        <option value="" selected disabled>Choose a format</option>
+        <option value="pdf">One combined PDF</option>
+        <option value="md">One combined Markdown file</option>
+      </select>
+      <div class="dialog-actions">
+        <button id="cancel-export" type="button">Cancel</button>
+        <button class="confirm-export" type="submit">Export</button>
+      </div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script>
     const $ = (selector) => document.querySelector(selector);
     const notes = new Map();
+    const selectedReels = new Set();
     let latestBatch = [];
+    let bulkExportReels = [];
     let needsPassword = false;
     let toastTimer;
 
@@ -136,6 +180,22 @@
       const password = sessionStorage.getItem("sales-notes-password");
       if (password) headers["X-App-Password"] = password;
       return headers;
+    }
+    function selectedReelEntries() {
+      return [...notes.values()]
+        .map((result, index) => ({ url: result.url, reel_number: index + 1 }))
+        .filter((reel) => selectedReels.has(reel.url));
+    }
+    function updateSelectionUi() {
+      const selectedCount = selectedReelEntries().length;
+      const total = notes.size;
+      $("#selection-count").textContent = `${selectedCount} selected`;
+      $("#export-selected").disabled = selectedCount === 0;
+      $("#delete-selected").disabled = selectedCount === 0;
+      const selectAll = $("#select-all");
+      selectAll.disabled = total === 0;
+      selectAll.checked = total > 0 && selectedCount === total;
+      selectAll.indeterminate = selectedCount > 0 && selectedCount < total;
     }
     async function exportNote(result, index, format, button) {
       button.disabled = true;
@@ -167,6 +227,46 @@
         showToast(`Reel ${String(index).padStart(2, "0")} deleted.`);
       } catch (error) { showToast(error.message); button.disabled = false; }
     }
+    async function exportSelected(format, button) {
+      button.disabled = true;
+      try {
+        const response = await apiFetch("/api/notes/export-batch", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ format, reels: bulkExportReels }),
+        });
+        const file = await response.blob();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(file);
+        link.download = format === "pdf" ? "selected-reels.pdf" : "selected-reels.md";
+        document.body.append(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        $("#export-dialog").close();
+        showToast(`${bulkExportReels.length} transcripts exported.`);
+      } catch (error) { showToast(error.message); }
+      finally { button.disabled = false; }
+    }
+    async function deleteSelected(button) {
+      const reels = selectedReelEntries();
+      if (!reels.length) return;
+      const count = reels.length;
+      const label = count === 1 ? "transcript" : "transcripts";
+      if (!window.confirm(`Delete ${count} selected ${label}? This cannot be undone.`)) return;
+      button.disabled = true;
+      try {
+        const response = await apiFetch("/api/notes/batch", {
+          method: "DELETE", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ urls: reels.map((reel) => reel.url) }),
+        });
+        const result = await response.json();
+        result.deleted.forEach((url) => { notes.delete(url); selectedReels.delete(url); });
+        latestBatch = latestBatch.filter((item) => notes.has(item.url));
+        renderNotes();
+        showToast(`${result.deleted.length} ${label} deleted.`);
+      } catch (error) {
+        showToast(error.message);
+        try { await loadNotes(); } catch (_) { }
+      } finally { button.disabled = false; }
+    }
     function safeText(tag, className, text) {
       const node = document.createElement(tag);
       if (className) node.className = className;
@@ -175,7 +275,21 @@
     }
     function noteCard(result, index) {
       const card = safeText("article", "note", "");
-      card.append(safeText("h3", "", `Reel ${index}`));
+      const heading = safeText("div", "note-heading", "");
+      heading.append(safeText("h3", "", `Reel ${index}`));
+      const selectLabel = safeText("label", "select-reel", "");
+      const select = document.createElement("input");
+      select.type = "checkbox";
+      select.checked = selectedReels.has(result.url);
+      select.setAttribute("aria-label", `Select Reel ${index}`);
+      select.addEventListener("change", () => {
+        if (select.checked) selectedReels.add(result.url);
+        else selectedReels.delete(result.url);
+        updateSelectionUi();
+      });
+      selectLabel.append(select, document.createTextNode("Select"));
+      heading.append(selectLabel);
+      card.append(heading);
       const transcript = safeText("p", "field", result.transcript || "No speech detected.");
       transcript.style.whiteSpace = "pre-wrap";
       card.append(transcript);
@@ -202,9 +316,11 @@
       $("#note-count").textContent = `${results.length} ${results.length === 1 ? "transcript" : "transcripts"}`;
       if (!results.length) {
         grid.append(safeText("div", "empty", "Your saved transcripts will appear here."));
+        updateSelectionUi();
         return;
       }
       results.forEach((result, index) => grid.append(noteCard(result, index + 1)));
+      updateSelectionUi();
     }
     async function apiFetch(url, options = {}) {
       const response = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
@@ -223,6 +339,8 @@
       const response = await apiFetch("/api/notes");
       const saved = await response.json();
       notes.clear(); saved.forEach((note) => notes.set(note.url, note)); renderNotes();
+      for (const url of selectedReels) if (!notes.has(url)) selectedReels.delete(url);
+      updateSelectionUi();
     }
     function progressRow(url, index, total) {
       const row = safeText("div", "progress-item busy", "");
@@ -298,6 +416,26 @@
       } catch (error) { showToast(error.message); }
       finally { button.disabled = false; }
     });
+    $("#select-all").addEventListener("change", (event) => {
+      if (event.target.checked) [...notes.keys()].forEach((url) => selectedReels.add(url));
+      else selectedReels.clear();
+      renderNotes();
+    });
+    $("#export-selected").addEventListener("click", () => {
+      bulkExportReels = selectedReelEntries();
+      if (!bulkExportReels.length) return showToast("Select at least one reel first.");
+      $("#export-description").textContent = `Export ${bulkExportReels.length} selected transcript${bulkExportReels.length === 1 ? "" : "s"} as one file.`;
+      $("#bulk-format").value = "";
+      $("#export-dialog").showModal();
+    });
+    $("#export-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const format = $("#bulk-format").value;
+      if (!format) return showToast("Choose PDF or Markdown first.");
+      exportSelected(format, event.submitter);
+    });
+    $("#cancel-export").addEventListener("click", () => $("#export-dialog").close());
+    $("#delete-selected").addEventListener("click", (event) => deleteSelected(event.currentTarget));
     $("#login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       const button = $("#login-submit"); const errorBox = $("#login-error");

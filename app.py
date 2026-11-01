@@ -59,6 +59,19 @@ class ExportRequest(ReelRequest):
     reel_number: int
 
 
+class BulkExportReel(ReelRequest):
+    reel_number: int
+
+
+class BulkExportRequest(BaseModel):
+    format: str
+    reels: list[BulkExportReel]
+
+
+class BulkDeleteRequest(BaseModel):
+    urls: list[str]
+
+
 def _result_name(url: str) -> str:
     return f"notes/{hashlib.sha256(url.encode('utf-8')).hexdigest()}.json"
 
@@ -217,6 +230,30 @@ async def delete_note(body: ReelRequest, request: Request) -> dict[str, bool]:
     return {"deleted": True}
 
 
+@app.delete("/api/notes/batch")
+async def delete_notes(body: BulkDeleteRequest, request: Request) -> dict[str, list[str]]:
+    _authorize(request)
+    urls = list(dict.fromkeys(url.strip() for url in body.urls))
+    if not urls or len(urls) > 300 or any(not _valid_reel_url(url) for url in urls):
+        raise HTTPException(status_code=400, detail="Select between 1 and 300 valid reel transcripts.")
+    saved_results = await asyncio.gather(*(_read_result(url) for url in urls))
+    if any(not result or result.get("_schema_version") != SCHEMA_VERSION for result in saved_results):
+        raise HTTPException(status_code=404, detail="One or more selected transcripts were not found.")
+    names = [_result_name(url) for url in urls]
+    try:
+        if os.getenv("VERCEL"):
+            from vercel import blob
+
+            await blob.delete_blob(names)
+        else:
+            paths = [DATA_DIR / name for name in names]
+            await asyncio.gather(*(asyncio.to_thread(path.unlink, missing_ok=True) for path in paths))
+    except Exception as exc:
+        logger.exception("Could not delete selected reel transcripts")
+        raise HTTPException(status_code=503, detail="Could not delete all selected transcripts from storage.") from exc
+    return {"deleted": urls}
+
+
 @app.post("/api/notes/export")
 async def export_note(body: ExportRequest, request: Request) -> Response:
     _authorize(request)
@@ -249,6 +286,46 @@ async def export_note(body: ExportRequest, request: Request) -> Response:
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}.pdf"'},
+    )
+
+
+@app.post("/api/notes/export-batch")
+async def export_notes(body: BulkExportRequest, request: Request) -> Response:
+    _authorize(request)
+    if body.format not in {"pdf", "md"}:
+        raise HTTPException(status_code=400, detail="Choose PDF or Markdown format.")
+    if not body.reels or len(body.reels) > 300:
+        raise HTTPException(status_code=400, detail="Select between 1 and 300 transcripts to export.")
+    urls = [reel.url.strip() for reel in body.reels]
+    if len(set(urls)) != len(urls) or any(not _valid_reel_url(url) for url in urls):
+        raise HTTPException(status_code=400, detail="The selected reel list is invalid.")
+    if any(not 1 <= reel.reel_number <= 300 for reel in body.reels):
+        raise HTTPException(status_code=400, detail="One or more reel numbers are invalid.")
+    results = await asyncio.gather(*(_read_result(url) for url in urls))
+    if any(not result or result.get("_schema_version") != SCHEMA_VERSION for result in results):
+        raise HTTPException(status_code=404, detail="One or more selected transcripts were not found.")
+
+    selected = [dict(result) for result in results if result]
+    if body.format == "md":
+        sections = [
+            f"# Reel {selection.reel_number}\n\n{result.get('transcript', '').strip()}"
+            for selection, result in zip(body.reels, selected)
+        ]
+        return Response(
+            content="\n\n---\n\n".join(sections) + "\n",
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": 'attachment; filename="selected-reels.md"'},
+        )
+
+    reel_numbers = [reel.reel_number for reel in body.reels]
+    with tempfile.TemporaryDirectory(dir="/tmp" if os.getenv("VERCEL") else None) as temp_dir:
+        pdf_path = Path(temp_dir) / "selected-reels.pdf"
+        await asyncio.to_thread(build_pdf, selected, pdf_path, reel_numbers)
+        pdf_bytes = await asyncio.to_thread(pdf_path.read_bytes)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="selected-reels.pdf"'},
     )
 
 

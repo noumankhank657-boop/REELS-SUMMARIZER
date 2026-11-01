@@ -126,7 +126,10 @@ def _friendly_error(exc: Exception) -> str:
 
 @app.get("/")
 async def home() -> FileResponse:
-    return FileResponse(WEB_DIR / "index.html")
+    return FileResponse(
+        WEB_DIR / "index.html",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.get("/api/config")

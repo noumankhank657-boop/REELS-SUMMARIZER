@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import secrets
 import tempfile
@@ -33,6 +34,7 @@ ROOT_DIR = Path(__file__).parent
 WEB_DIR = ROOT_DIR / "web"
 DATA_DIR = ROOT_DIR / "data"
 MODEL_OPTIONS = {"tiny", "base", "small"}
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Sales Reel Notes", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
@@ -137,20 +139,31 @@ async def config() -> dict[str, bool]:
 async def list_notes(request: Request) -> list[dict[str, Any]]:
     _authorize(request)
     if os.getenv("VERCEL"):
-        from vercel import blob
+        try:
+            from vercel import blob
 
-        notes: list[dict[str, Any]] = []
-        async for entry in blob.query_blobs(prefix="notes/", page_size=100):
-            try:
-                stored = await blob.get_blob(entry.pathname, access="private")
-                result = json.loads(stored.body.decode("utf-8"))
-                if REQUIRED_FIELDS.issubset(result):
-                    notes.append(result)
-                if len(notes) >= 300:
-                    break
-            except (blob.BlobNotFoundError, json.JSONDecodeError):
-                continue
-        return notes
+            notes: list[dict[str, Any]] = []
+            async for entry in blob.query_blobs(prefix="notes/", page_size=100):
+                try:
+                    stored = await blob.get_blob(entry.pathname, access="private")
+                    result = json.loads(stored.body.decode("utf-8"))
+                    if REQUIRED_FIELDS.issubset(result):
+                        notes.append(result)
+                    if len(notes) >= 300:
+                        break
+                except (blob.BlobNotFoundError, json.JSONDecodeError):
+                    continue
+            return notes
+        except Exception as exc:
+            logger.exception("Could not load saved notes from Vercel Blob")
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Saved-note storage is unavailable. In Vercel, create a private Blob store "
+                    "and connect it to this project for Production, then redeploy. "
+                    "See the Vercel function logs for the storage error."
+                ),
+            ) from exc
 
     notes = []
     if DATA_DIR.exists():

@@ -22,7 +22,11 @@ def _text(value: Any) -> str:
     return escape(str(value)).replace("\n", "<br/>")
 
 
-def build_pdf(results: list[dict[str, Any]], output_path: Path) -> Path:
+def build_pdf(
+    results: list[dict[str, Any]],
+    output_path: Path,
+    reel_numbers: list[int] | None = None,
+) -> Path:
     """Write each reel's transcript without summaries or other generated fields."""
     if not results:
         raise ValueError("There are no reel transcripts to put in the PDF.")
@@ -42,8 +46,9 @@ def build_pdf(results: list[dict[str, Any]], output_path: Path) -> Path:
     doc.addPageTemplates(PageTemplate(id="main", frames=[frame]))
 
     story: list[Any] = [Paragraph("Reel Transcripts", styles["PageTitle"])]
-    for reel_number, result in enumerate(results, start=1):
-        if reel_number > 1:
+    for index, result in enumerate(results):
+        reel_number = reel_numbers[index] if reel_numbers else index + 1
+        if index > 0:
             story.append(Spacer(1, 0.18 * inch))
         story.append(Paragraph(f"Reel {reel_number}", styles["ReelTitle"]))
         transcript = str(result.get("transcript", "")).strip()

@@ -50,6 +50,15 @@ class PdfRequest(BaseModel):
     results: list[dict[str, Any]]
 
 
+class ReelRequest(BaseModel):
+    url: str
+
+
+class ExportRequest(ReelRequest):
+    format: str
+    reel_number: int
+
+
 def _result_name(url: str) -> str:
     return f"notes/{hashlib.sha256(url.encode('utf-8')).hexdigest()}.json"
 
@@ -99,6 +108,18 @@ async def _save_result(url: str, result: dict[str, Any]) -> None:
     path = DATA_DIR / name.removeprefix("notes/")
     path.parent.mkdir(parents=True, exist_ok=True)
     await asyncio.to_thread(path.write_bytes, payload)
+
+
+async def _delete_result(url: str) -> None:
+    name = _result_name(url)
+    if os.getenv("VERCEL"):
+        from vercel import blob
+
+        await blob.delete_blob(name)
+        return
+
+    path = DATA_DIR / name
+    await asyncio.to_thread(path.unlink, missing_ok=True)
 
 
 def _valid_reel_url(url: str) -> bool:
@@ -177,6 +198,58 @@ async def list_notes(request: Request) -> list[dict[str, Any]]:
             except (OSError, json.JSONDecodeError):
                 continue
     return notes
+
+
+@app.delete("/api/notes")
+async def delete_note(body: ReelRequest, request: Request) -> dict[str, bool]:
+    _authorize(request)
+    url = body.url.strip()
+    if not _valid_reel_url(url):
+        raise HTTPException(status_code=400, detail="Enter a public Instagram reel URL.")
+    saved = await _read_result(url)
+    if not saved or saved.get("_schema_version") != SCHEMA_VERSION:
+        raise HTTPException(status_code=404, detail="This saved transcript was not found.")
+    try:
+        await _delete_result(url)
+    except Exception as exc:
+        logger.exception("Could not delete saved reel transcript")
+        raise HTTPException(status_code=503, detail="Could not delete this transcript from storage.") from exc
+    return {"deleted": True}
+
+
+@app.post("/api/notes/export")
+async def export_note(body: ExportRequest, request: Request) -> Response:
+    _authorize(request)
+    url = body.url.strip()
+    if not _valid_reel_url(url):
+        raise HTTPException(status_code=400, detail="Enter a public Instagram reel URL.")
+    if body.format not in {"pdf", "md"}:
+        raise HTTPException(status_code=400, detail="Choose PDF or Markdown format.")
+    if not 1 <= body.reel_number <= 300:
+        raise HTTPException(status_code=400, detail="Invalid reel number.")
+    result = await _read_result(url)
+    if not result or result.get("_schema_version") != SCHEMA_VERSION:
+        raise HTTPException(status_code=404, detail="This saved transcript was not found.")
+
+    filename = f"reel-{body.reel_number:02d}"
+    transcript = str(result.get("transcript", "")).strip()
+    if body.format == "md":
+        content = f"# Reel {body.reel_number}\n\n{transcript}\n"
+        return Response(
+            content=content,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}.md"'},
+        )
+
+    with tempfile.TemporaryDirectory(dir="/tmp" if os.getenv("VERCEL") else None) as temp_dir:
+        pdf_path = Path(temp_dir) / f"{filename}.pdf"
+        await asyncio.to_thread(build_pdf, [result], pdf_path, [body.reel_number])
+        pdf_bytes = await asyncio.to_thread(pdf_path.read_bytes)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}.pdf"'},
+    )
 
 
 @app.post("/api/process")

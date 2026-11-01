@@ -46,6 +46,12 @@
     .notes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px }
     .note { padding:19px; border:1px solid var(--line); border-radius:15px; background:var(--paper) }
     .note h3 { margin:0 0 16px; font-size:17px; letter-spacing:-.02em }
+    .note-actions { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; margin-top:16px; padding-top:13px; border-top:1px solid #edf0ea }
+    .note-actions select, .note-actions button { min-height:38px; padding:7px 10px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--ink); font-size:12px; font-weight:700 }
+    .note-actions button { cursor:pointer }
+    .note-actions button:hover { background:var(--soft) }
+    .note-actions button:disabled { cursor:wait; opacity:.6 }
+    .note-actions .delete-note { color:var(--red); border-color:#efd6d1 }
     .when { margin-bottom:17px; color:#435349; font-size:13px }
     .when strong { display:block; margin-bottom:4px; color:var(--muted); font-size:10px; letter-spacing:.1em; text-transform:uppercase }
     .part { padding-top:14px; border-top:1px solid #edf0ea }
@@ -131,6 +137,36 @@
       if (password) headers["X-App-Password"] = password;
       return headers;
     }
+    async function exportNote(result, index, format, button) {
+      button.disabled = true;
+      try {
+        const response = await apiFetch("/api/notes/export", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: result.url, format, reel_number: index }),
+        });
+        const file = await response.blob();
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(file);
+        link.download = `reel-${String(index).padStart(2, "0")}.${format}`;
+        document.body.append(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      } catch (error) { showToast(error.message); }
+      finally { button.disabled = false; }
+    }
+    async function deleteNote(result, index, button) {
+      if (!window.confirm(`Delete Reel ${String(index).padStart(2, "0")}'s saved transcript? This cannot be undone.`)) return;
+      button.disabled = true;
+      try {
+        await apiFetch("/api/notes", {
+          method: "DELETE", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: result.url }),
+        });
+        notes.delete(result.url);
+        latestBatch = latestBatch.filter((item) => item.url !== result.url);
+        renderNotes();
+        showToast(`Reel ${String(index).padStart(2, "0")} deleted.`);
+      } catch (error) { showToast(error.message); button.disabled = false; }
+    }
     function safeText(tag, className, text) {
       const node = document.createElement(tag);
       if (className) node.className = className;
@@ -143,6 +179,21 @@
       const transcript = safeText("p", "field", result.transcript || "No speech detected.");
       transcript.style.whiteSpace = "pre-wrap";
       card.append(transcript);
+      const actions = safeText("div", "note-actions", "");
+      const format = document.createElement("select");
+      format.setAttribute("aria-label", `Export format for Reel ${index}`);
+      format.append(new Option("Choose export format", ""), new Option("PDF", "pdf"), new Option("Markdown", "md"));
+      const exportButton = safeText("button", "", "Export");
+      exportButton.type = "button";
+      exportButton.addEventListener("click", () => {
+        if (!format.value) return showToast("Choose PDF or Markdown first.");
+        exportNote(result, index, format.value, exportButton);
+      });
+      const deleteButton = safeText("button", "delete-note", "Delete");
+      deleteButton.type = "button";
+      deleteButton.addEventListener("click", () => deleteNote(result, index, deleteButton));
+      actions.append(format, exportButton, deleteButton);
+      card.append(actions);
       return card;
     }
     function renderNotes() {

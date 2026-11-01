@@ -57,12 +57,13 @@
     .field ol { margin:4px 0 0; padding-left:18px }
     .field li + li { margin-top:4px }
     .empty { grid-column:1/-1; padding:32px 20px; border:1px dashed #cfd8cc; border-radius:15px; color:var(--muted); text-align:center; font-size:13px }
-    .toast { position:fixed; right:22px; bottom:22px; max-width:min(420px,calc(100vw - 44px)); padding:13px 17px; border-radius:12px; background:#193124; color:white; font-size:13px; box-shadow:0 12px 32px #12261d30 }
+    .toast { position:fixed; z-index:7; right:22px; bottom:22px; max-width:min(420px,calc(100vw - 44px)); padding:13px 17px; border-radius:12px; background:#193124; color:white; font-size:13px; box-shadow:0 12px 32px #12261d30 }
     .overlay { position:fixed; inset:0; z-index:5; display:grid; place-items:center; padding:20px; background:#14221c99; backdrop-filter:blur(5px) }
     .login { width:min(380px,100%); padding:25px; border-radius:17px; background:white; box-shadow:0 20px 70px #1118 }
     .login h2 { margin-bottom:7px }
     .login p { margin:0 0 17px; color:var(--muted); font-size:13px }
     .login .primary { width:100%; margin-top:13px }
+    .login p.login-error { margin:10px 0 0; color:var(--red); font-size:12px }
     [hidden] { display:none !important }
     @media(max-width:760px) { .shell{padding:20px 18px 55px} header{padding-bottom:25px}.hero{grid-template-columns:1fr;gap:25px;padding:40px 0 30px} h1{max-width:500px}.notes{grid-template-columns:1fr} }
     @media(max-width:420px) { .form-card{padding:17px}.form-row{align-items:stretch;flex-direction:column}.model{width:100%}.primary{flex:none} }
@@ -107,7 +108,8 @@
       <p>Enter your app password to open your sales notes.</p>
       <label for="password">App password</label>
       <input id="password" type="password" autocomplete="current-password" required>
-      <button class="primary" type="submit">Continue</button>
+      <p id="login-error" class="login-error" role="alert" hidden></p>
+      <button id="login-submit" class="primary" type="submit">Continue</button>
     </form>
   </div>
   <div id="toast" class="toast" role="status" hidden></div>
@@ -178,7 +180,7 @@
       const response = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
       if (response.status === 401) {
         $("#login-overlay").hidden = false;
-        throw new Error("Enter your app password to continue.");
+        throw new Error("The password was rejected. Check that it exactly matches APP_PASSWORD in Vercel settings.");
       }
       const contentType = response.headers.get("content-type") || "";
       if (!response.ok) {
@@ -268,9 +270,19 @@
     });
     $("#login-form").addEventListener("submit", async (event) => {
       event.preventDefault();
+      const button = $("#login-submit"); const errorBox = $("#login-error");
+      button.disabled = true; button.textContent = "Checking…"; errorBox.hidden = true;
       sessionStorage.setItem("sales-notes-password", $("#password").value);
-      try { await loadNotes(); $("#login-overlay").hidden = true; }
-      catch (error) { showToast(error.message); sessionStorage.removeItem("sales-notes-password"); }
+      try {
+        await loadNotes();
+        $("#login-overlay").hidden = true;
+      } catch (error) {
+        sessionStorage.removeItem("sales-notes-password");
+        errorBox.textContent = error.message || "Could not open your notes. Check the Vercel function logs.";
+        errorBox.hidden = false;
+      } finally {
+        button.disabled = false; button.textContent = "Continue";
+      }
     });
     (async () => {
       try {

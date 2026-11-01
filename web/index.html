@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f6f2">
-  <title>Sales Reel Notes</title>
+  <title>Reel Transcripts</title>
   <style>
     :root { color-scheme: light; --ink:#172820; --muted:#68766d; --line:#dfe5dc; --paper:#fff; --canvas:#f5f6f2; --green:#b8ef74; --green-dark:#18351f; --soft:#edf3e9; --red:#a13e31; }
     * { box-sizing:border-box }
@@ -72,32 +72,32 @@
 <body>
   <main class="shell">
     <header>
-      <div class="brand"><span class="brand-mark">↗</span><span>Sales Reel Notes</span></div>
+      <div class="brand"><span class="brand-mark">↗</span><span>Reel Transcripts</span></div>
       <div class="privacy">Private workspace</div>
     </header>
 
     <section class="hero" aria-labelledby="main-title">
       <div>
-        <div class="eyebrow">Your sales knowledge base</div>
-        <h1 id="main-title">Good ideas, ready to use.</h1>
-        <p class="intro">Turn public Instagram reels into concise sales advice and repeatable content patterns.</p>
+        <div class="eyebrow">Your reel transcripts</div>
+        <h1 id="main-title">Every word, captured.</h1>
+        <p class="intro">Paste public Instagram reel links and get a transcript of the spoken audio. No summaries or rewritten wording.</p>
       </div>
       <form id="process-form" class="form-card">
         <label for="urls">Reel links <span style="color:#7e8b80;font-weight:500">· one per line</span></label>
         <textarea id="urls" placeholder="https://www.instagram.com/reel/..." required></textarea>
         <div class="form-row">
-          <div class="model"><label for="model">Transcription</label><select id="model"><option value="tiny">Fast · tiny</option><option value="base">Balanced · base</option><option value="small">Accurate · small</option></select></div>
-          <button id="process" class="primary" type="submit">Process reels <span aria-hidden="true">↗</span></button>
+          <div class="model"><label for="model">Transcription quality</label><select id="model"><option value="tiny">Fast · tiny</option><option value="base">Balanced · base</option><option value="small">Accurate · small</option></select></div>
+          <button id="process" class="primary" type="submit">Transcribe reels <span aria-hidden="true">↗</span></button>
         </div>
       </form>
     </section>
 
     <section id="progress" class="progress" aria-live="polite"></section>
-    <button id="download-pdf" class="download" type="button" hidden>Download notes PDF ↓</button>
+    <button id="download-pdf" class="download" type="button" hidden>Download transcripts PDF ↓</button>
 
     <section aria-labelledby="library-title">
-      <div class="library-head"><div><div class="eyebrow">Saved locally or in your Vercel store</div><h2 id="library-title">Sales notes</h2></div><div id="note-count" class="count">Loading…</div></div>
-      <div id="notes" class="notes"><div class="empty">Loading your saved notes…</div></div>
+      <div class="library-head"><div><div class="eyebrow">Saved locally or in your Vercel store</div><h2 id="library-title">Transcripts</h2></div><div id="note-count" class="count">Loading…</div></div>
+      <div id="notes" class="notes"><div class="empty">Loading your saved transcripts…</div></div>
     </section>
   </main>
 
@@ -105,7 +105,7 @@
     <form id="login-form" class="login">
       <div class="eyebrow">Private workspace</div>
       <h2>Welcome back.</h2>
-      <p>Enter your app password to open your sales notes.</p>
+      <p>Enter your app password to open your transcripts.</p>
       <label for="password">App password</label>
       <input id="password" type="password" autocomplete="current-password" required>
       <p id="login-error" class="login-error" role="alert" hidden></p>
@@ -137,41 +137,20 @@
       node.textContent = text == null ? "" : String(text);
       return node;
     }
-    function field(label, value, list = false) {
-      const box = safeText("div", "field", "");
-      box.append(safeText("span", "field-label", label));
-      if (list) {
-        const ol = document.createElement("ol");
-        (Array.isArray(value) && value.length ? value : ["Not covered"]).forEach((item) => ol.append(safeText("li", "", item)));
-        box.append(ol);
-      } else {
-        box.append(safeText("div", "", value || "Not covered"));
-      }
-      return box;
-    }
     function noteCard(result, index) {
       const card = safeText("article", "note", "");
-      card.append(safeText("h3", "", `Reel ${String(index).padStart(2, "0")}`));
-      const when = safeText("div", "when", "");
-      when.append(safeText("strong", "", "Use when"), safeText("span", "", result.use_when || "Not specified in the reel"));
-      card.append(when);
-      const content = safeText("section", "part", "");
-      content.append(safeText("h4", "part-title", "Content part"));
-      content.append(field("1. Content ideas", result.content_ideas, true));
-      content.append(field("2. How the hook works", result.hook_mechanics));
-      content.append(field("3. Hook pattern", result.hook_pattern));
-      const sales = safeText("section", "part", "");
-      sales.append(safeText("h4", "part-title", "Sales part"));
-      sales.append(field("1. Sales advice", result.sales_advice, true));
-      card.append(content, sales);
+      card.append(safeText("h3", "", `Reel ${index}`));
+      const transcript = safeText("p", "field", result.transcript || "No speech detected.");
+      transcript.style.whiteSpace = "pre-wrap";
+      card.append(transcript);
       return card;
     }
     function renderNotes() {
       const grid = $("#notes"); grid.replaceChildren();
       const results = [...notes.values()];
-      $("#note-count").textContent = `${results.length} ${results.length === 1 ? "note" : "notes"}`;
+      $("#note-count").textContent = `${results.length} ${results.length === 1 ? "transcript" : "transcripts"}`;
       if (!results.length) {
-        grid.append(safeText("div", "empty", "Your saved sales notes will appear here."));
+        grid.append(safeText("div", "empty", "Your saved transcripts will appear here."));
         return;
       }
       results.forEach((result, index) => grid.append(noteCard(result, index + 1)));
@@ -224,10 +203,10 @@
           if (event.type === "result") {
             foundResult = true; notes.set(url, event.result); renderNotes();
             row.className = "progress-item done";
-            message.textContent = event.cached ? "Saved note reused" : "Note ready";
+            message.textContent = event.cached ? "Saved transcript reused" : "Transcript ready";
           }
         });
-        if (!foundResult) throw new Error("The server finished without returning a note.");
+        if (!foundResult) throw new Error("The server finished without returning a transcript.");
         return notes.get(url);
       } catch (error) {
         row.className = "progress-item error"; message.textContent = error.message;
@@ -250,7 +229,7 @@
         if (batch.length) {
           latestBatch = batch;
           $("#download-pdf").hidden = false;
-          showToast(`${batch.length} note${batch.length === 1 ? "" : "s"} ready.`);
+          showToast(`${batch.length} transcript${batch.length === 1 ? "" : "s"} ready.`);
         }
       } catch (error) { showToast(error.message); }
       finally { button.disabled = false; }
@@ -263,7 +242,7 @@
           body: JSON.stringify({ results: latestBatch }),
         });
         const pdf = await response.blob(); const link = document.createElement("a");
-        link.href = URL.createObjectURL(pdf); link.download = "sales-reel-notes.pdf";
+        link.href = URL.createObjectURL(pdf); link.download = "reel-transcripts.pdf";
         document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(link.href);
       } catch (error) { showToast(error.message); }
       finally { button.disabled = false; }

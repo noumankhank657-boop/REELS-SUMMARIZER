@@ -26,7 +26,6 @@ if os.getenv("VERCEL"):
 
 from downloader import download_audio
 from pdf_builder import build_pdf
-from summarizer import REQUIRED_FIELDS, SCHEMA_VERSION, summarize_transcript
 from transcriber import transcribe_audio
 
 
@@ -34,9 +33,11 @@ ROOT_DIR = Path(__file__).parent
 WEB_DIR = ROOT_DIR / "web"
 DATA_DIR = ROOT_DIR / "data"
 MODEL_OPTIONS = {"tiny", "base", "small"}
+SCHEMA_VERSION = 4
+REQUIRED_FIELDS = {"transcript", "url", "_schema_version"}
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Sales Reel Notes", docs_url=None, redoc_url=None)
+app = FastAPI(title="Reel Transcripts", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
 
@@ -120,8 +121,6 @@ def _friendly_error(exc: Exception) -> str:
         return "Instagram marks this reel as restricted, so it is not available to this app."
     if "empty media response" in lowered or "not available" in lowered:
         return "Instagram did not provide this reel anonymously. Check that it opens while signed out."
-    if "deepseek_api_key" in lowered:
-        return "The DeepSeek API key is missing. Set DEEPSEEK_API_KEY in the environment."
     return message or "This reel could not be processed."
 
 
@@ -147,7 +146,7 @@ async def list_notes(request: Request) -> list[dict[str, Any]]:
                 try:
                     stored = await blob.get_blob(entry.pathname, access="private")
                     result = json.loads(stored.body.decode("utf-8"))
-                    if REQUIRED_FIELDS.issubset(result):
+                    if REQUIRED_FIELDS.issubset(result) and result.get("_schema_version") == SCHEMA_VERSION:
                         notes.append(result)
                     if len(notes) >= 300:
                         break
@@ -167,10 +166,10 @@ async def list_notes(request: Request) -> list[dict[str, Any]]:
 
     notes = []
     if DATA_DIR.exists():
-        for path in DATA_DIR.glob("*.json"):
+        for path in (DATA_DIR / "notes").glob("*.json"):
             try:
                 result = json.loads(await asyncio.to_thread(path.read_text, encoding="utf-8"))
-                if REQUIRED_FIELDS.issubset(result):
+                if REQUIRED_FIELDS.issubset(result) and result.get("_schema_version") == SCHEMA_VERSION:
                     notes.append(result)
             except (OSError, json.JSONDecodeError):
                 continue
@@ -194,25 +193,22 @@ async def process_reel(body: ProcessRequest, request: Request) -> StreamingRespo
                 yield _event({"type": "result", "result": cached, "cached": True})
                 return
 
-            transcript = cached.get("cleaned_transcript") if cached else None
+            transcript = cached.get("transcript") if cached else None
             if transcript:
-                yield _event({"type": "status", "message": "Updating saved notes"})
+                yield _event({"type": "status", "message": "Using saved transcript"})
             else:
                 yield _event({"type": "status", "message": "Downloading reel audio"})
                 temp_dir = tempfile.TemporaryDirectory(dir="/tmp" if os.getenv("VERCEL") else None)
                 try:
                     audio_path = await asyncio.to_thread(download_audio, url, Path(temp_dir.name))
-                    yield _event({"type": "status", "message": "Transcribing audio with the tiny CPU model"})
+                    yield _event({"type": "status", "message": f"Transcribing audio with the {body.model_size} CPU model"})
                     transcript = await asyncio.to_thread(transcribe_audio, audio_path, body.model_size)
                 finally:
                     temp_dir.cleanup()
 
             if not transcript or not transcript.strip():
                 raise ValueError("No speech could be transcribed from this reel.")
-            yield _event({"type": "status", "message": "Preparing short sales notes"})
-            result = await asyncio.to_thread(summarize_transcript, transcript)
-            result["url"] = url
-            result["_schema_version"] = SCHEMA_VERSION
+            result = {"transcript": transcript.strip(), "url": url, "_schema_version": SCHEMA_VERSION}
             await _save_result(url, result)
             yield _event({"type": "result", "result": result, "cached": False})
         except Exception as exc:

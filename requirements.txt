@@ -3,7 +3,6 @@ uvicorn[standard]>=0.30
 yt-dlp
 faster-whisper
 av<19
-openai
 python-dotenv
 reportlab
 vercel-blob>=0.5.0

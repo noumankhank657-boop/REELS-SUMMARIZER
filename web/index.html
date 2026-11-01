@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f2">
+  <title>Sales Reel Notes</title>
+  <style>
+    :root { color-scheme: light; --ink:#172820; --muted:#68766d; --line:#dfe5dc; --paper:#fff; --canvas:#f5f6f2; --green:#b8ef74; --green-dark:#18351f; --soft:#edf3e9; --red:#a13e31; }
+    * { box-sizing:border-box }
+    body { margin:0; background:var(--canvas); color:var(--ink); font:15px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    button, textarea, select, input { font:inherit }
+    .shell { max-width:1040px; margin:0 auto; padding:28px 28px 80px }
+    header { display:flex; align-items:center; justify-content:space-between; padding:4px 0 44px; border-bottom:1px solid var(--line) }
+    .brand { display:flex; align-items:center; gap:11px; font-size:13px; font-weight:750; letter-spacing:.09em; text-transform:uppercase }
+    .brand-mark { width:32px; height:32px; display:grid; place-items:center; border-radius:10px; background:var(--green); color:var(--green-dark); font-size:15px; letter-spacing:0 }
+    .privacy { color:var(--muted); font-size:12px }
+    .hero { display:grid; grid-template-columns:1fr 1.04fr; gap:52px; align-items:center; padding:58px 0 48px }
+    .eyebrow { color:#537b3d; font-size:11px; font-weight:800; letter-spacing:.13em; text-transform:uppercase }
+    h1 { max-width:430px; margin:14px 0 15px; font-size:clamp(38px,5vw,58px); letter-spacing:-.055em; line-height:1.02; font-weight:720 }
+    .intro { max-width:390px; margin:0; color:var(--muted); font-size:16px }
+    .form-card { padding:23px; background:var(--paper); border:1px solid var(--line); border-radius:18px; box-shadow:0 12px 40px #1a2c1710 }
+    label { display:block; margin-bottom:8px; font-size:13px; font-weight:700 }
+    textarea { width:100%; min-height:142px; resize:vertical; padding:13px 14px; border:1px solid var(--line); border-radius:11px; outline:none; color:var(--ink); background:#fbfcfa; font-size:13px; line-height:1.55 }
+    textarea:focus, select:focus, input:focus { border-color:#83a968; box-shadow:0 0 0 3px #b8ef743b }
+    textarea::placeholder { color:#9aa49a }
+    .form-row { display:flex; align-items:end; gap:12px; margin-top:15px }
+    .model { width:142px; flex:none }
+    select, input[type=password] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--ink); outline:none }
+    .primary { min-height:43px; flex:1; border:0; border-radius:10px; background:var(--green); color:var(--green-dark); font-weight:800; cursor:pointer; transition:transform .15s, background .15s }
+    .primary:hover { background:#a9e45f; transform:translateY(-1px) }
+    .primary:disabled { cursor:wait; opacity:.65; transform:none }
+    .download { display:block; margin:0 0 28px auto; padding:10px 15px; border:1px solid #b8c5b3; border-radius:10px; background:white; color:var(--ink); font-weight:750; cursor:pointer }
+    .download:hover { background:var(--soft) }
+    .download:disabled { opacity:.55; cursor:wait }
+    .progress { margin:0 0 34px; display:grid; gap:9px }
+    .progress-item { display:flex; align-items:center; gap:11px; padding:11px 14px; border:1px solid var(--line); border-radius:11px; background:#fff; color:var(--muted); font-size:13px; overflow-wrap:anywhere }
+    .dot { width:8px; height:8px; flex:none; border-radius:50%; background:#a8b1a7 }
+    .progress-item.busy .dot { background:#719d4e; box-shadow:0 0 0 4px #b8ef7438 }
+    .progress-item.done .dot { background:#559444 }
+    .progress-item.error { color:var(--red); border-color:#efd6d1; background:#fffaf9 }
+    .progress-item.error .dot { background:#c46658 }
+    .library-head { display:flex; align-items:end; justify-content:space-between; gap:20px; padding:27px 0 15px; border-top:1px solid var(--line) }
+    h2 { margin:0; font-size:24px; letter-spacing:-.035em }
+    .count { color:var(--muted); font-size:12px }
+    .notes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px }
+    .note { padding:19px; border:1px solid var(--line); border-radius:15px; background:var(--paper) }
+    .note h3 { margin:0 0 16px; font-size:17px; letter-spacing:-.02em }
+    .when { margin-bottom:17px; color:#435349; font-size:13px }
+    .when strong { display:block; margin-bottom:4px; color:var(--muted); font-size:10px; letter-spacing:.1em; text-transform:uppercase }
+    .part { padding-top:14px; border-top:1px solid #edf0ea }
+    .part + .part { margin-top:14px }
+    .part-title { margin:0 0 11px; color:#597346; font-size:10px; font-weight:850; letter-spacing:.12em; text-transform:uppercase }
+    .field { margin:0 0 12px; font-size:13px; line-height:1.5; overflow-wrap:anywhere }
+    .field:last-child { margin-bottom:0 }
+    .field-label { display:block; margin-bottom:4px; color:var(--muted); font-size:11px; font-weight:750 }
+    .field ol { margin:4px 0 0; padding-left:18px }
+    .field li + li { margin-top:4px }
+    .empty { grid-column:1/-1; padding:32px 20px; border:1px dashed #cfd8cc; border-radius:15px; color:var(--muted); text-align:center; font-size:13px }
+    .toast { position:fixed; right:22px; bottom:22px; max-width:min(420px,calc(100vw - 44px)); padding:13px 17px; border-radius:12px; background:#193124; color:white; font-size:13px; box-shadow:0 12px 32px #12261d30 }
+    .overlay { position:fixed; inset:0; z-index:5; display:grid; place-items:center; padding:20px; background:#14221c99; backdrop-filter:blur(5px) }
+    .login { width:min(380px,100%); padding:25px; border-radius:17px; background:white; box-shadow:0 20px 70px #1118 }
+    .login h2 { margin-bottom:7px }
+    .login p { margin:0 0 17px; color:var(--muted); font-size:13px }
+    .login .primary { width:100%; margin-top:13px }
+    [hidden] { display:none !important }
+    @media(max-width:760px) { .shell{padding:20px 18px 55px} header{padding-bottom:25px}.hero{grid-template-columns:1fr;gap:25px;padding:40px 0 30px} h1{max-width:500px}.notes{grid-template-columns:1fr} }
+    @media(max-width:420px) { .form-card{padding:17px}.form-row{align-items:stretch;flex-direction:column}.model{width:100%}.primary{flex:none} }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="brand"><span class="brand-mark">↗</span><span>Sales Reel Notes</span></div>
+      <div class="privacy">Private workspace</div>
+    </header>
+
+    <section class="hero" aria-labelledby="main-title">
+      <div>
+        <div class="eyebrow">Your sales knowledge base</div>
+        <h1 id="main-title">Good ideas, ready to use.</h1>
+        <p class="intro">Turn public Instagram reels into concise sales advice and repeatable content patterns.</p>
+      </div>
+      <form id="process-form" class="form-card">
+        <label for="urls">Reel links <span style="color:#7e8b80;font-weight:500">· one per line</span></label>
+        <textarea id="urls" placeholder="https://www.instagram.com/reel/..." required></textarea>
+        <div class="form-row">
+          <div class="model"><label for="model">Transcription</label><select id="model"><option value="tiny">Fast · tiny</option><option value="base">Balanced · base</option><option value="small">Accurate · small</option></select></div>
+          <button id="process" class="primary" type="submit">Process reels <span aria-hidden="true">↗</span></button>
+        </div>
+      </form>
+    </section>
+
+    <section id="progress" class="progress" aria-live="polite"></section>
+    <button id="download-pdf" class="download" type="button" hidden>Download notes PDF ↓</button>
+
+    <section aria-labelledby="library-title">
+      <div class="library-head"><div><div class="eyebrow">Saved locally or in your Vercel store</div><h2 id="library-title">Sales notes</h2></div><div id="note-count" class="count">Loading…</div></div>
+      <div id="notes" class="notes"><div class="empty">Loading your saved notes…</div></div>
+    </section>
+  </main>
+
+  <div id="login-overlay" class="overlay" hidden>
+    <form id="login-form" class="login">
+      <div class="eyebrow">Private workspace</div>
+      <h2>Welcome back.</h2>
+      <p>Enter your app password to open your sales notes.</p>
+      <label for="password">App password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button class="primary" type="submit">Continue</button>
+    </form>
+  </div>
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script>
+    const $ = (selector) => document.querySelector(selector);
+    const notes = new Map();
+    let latestBatch = [];
+    let needsPassword = false;
+    let toastTimer;
+
+    function showToast(message) {
+      const toast = $("#toast"); toast.textContent = message; toast.hidden = false;
+      clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.hidden = true, 4200);
+    }
+    function authHeaders(extra = {}) {
+      const headers = { ...extra };
+      const password = sessionStorage.getItem("sales-notes-password");
+      if (password) headers["X-App-Password"] = password;
+      return headers;
+    }
+    function safeText(tag, className, text) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      node.textContent = text == null ? "" : String(text);
+      return node;
+    }
+    function field(label, value, list = false) {
+      const box = safeText("div", "field", "");
+      box.append(safeText("span", "field-label", label));
+      if (list) {
+        const ol = document.createElement("ol");
+        (Array.isArray(value) && value.length ? value : ["Not covered"]).forEach((item) => ol.append(safeText("li", "", item)));
+        box.append(ol);
+      } else {
+        box.append(safeText("div", "", value || "Not covered"));
+      }
+      return box;
+    }
+    function noteCard(result, index) {
+      const card = safeText("article", "note", "");
+      card.append(safeText("h3", "", `Reel ${String(index).padStart(2, "0")}`));
+      const when = safeText("div", "when", "");
+      when.append(safeText("strong", "", "Use when"), safeText("span", "", result.use_when || "Not specified in the reel"));
+      card.append(when);
+      const content = safeText("section", "part", "");
+      content.append(safeText("h4", "part-title", "Content part"));
+      content.append(field("1. Content ideas", result.content_ideas, true));
+      content.append(field("2. How the hook works", result.hook_mechanics));
+      content.append(field("3. Hook pattern", result.hook_pattern));
+      const sales = safeText("section", "part", "");
+      sales.append(safeText("h4", "part-title", "Sales part"));
+      sales.append(field("1. Sales advice", result.sales_advice, true));
+      card.append(content, sales);
+      return card;
+    }
+    function renderNotes() {
+      const grid = $("#notes"); grid.replaceChildren();
+      const results = [...notes.values()];
+      $("#note-count").textContent = `${results.length} ${results.length === 1 ? "note" : "notes"}`;
+      if (!results.length) {
+        grid.append(safeText("div", "empty", "Your saved sales notes will appear here."));
+        return;
+      }
+      results.forEach((result, index) => grid.append(noteCard(result, index + 1)));
+    }
+    async function apiFetch(url, options = {}) {
+      const response = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
+      if (response.status === 401) {
+        $("#login-overlay").hidden = false;
+        throw new Error("Enter your app password to continue.");
+      }
+      const contentType = response.headers.get("content-type") || "";
+      if (!response.ok) {
+        const body = contentType.includes("json") ? await response.json() : { detail: await response.text() };
+        throw new Error(body.detail || "Request failed.");
+      }
+      return response;
+    }
+    async function loadNotes() {
+      const response = await apiFetch("/api/notes");
+      const saved = await response.json();
+      notes.clear(); saved.forEach((note) => notes.set(note.url, note)); renderNotes();
+    }
+    function progressRow(url, index, total) {
+      const row = safeText("div", "progress-item busy", "");
+      row.dataset.index = String(index);
+      row.append(safeText("span", "dot", ""), safeText("span", "message", `${index + 1} of ${total} · queued`));
+      $("#progress").append(row); return row;
+    }
+    async function readEvents(response, onEvent) {
+      const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read(); buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const lines = buffer.split("\n"); buffer = lines.pop() || "";
+        for (const line of lines) if (line.trim()) onEvent(JSON.parse(line));
+        if (done) break;
+      }
+      if (buffer.trim()) onEvent(JSON.parse(buffer));
+    }
+    async function processOne(url, model, row) {
+      const message = row.querySelector(".message");
+      try {
+        const response = await apiFetch("/api/process", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, model_size: model }),
+        });
+        let foundResult = false;
+        await readEvents(response, (event) => {
+          if (event.type === "status") message.textContent = event.message;
+          if (event.type === "error") throw new Error(event.message);
+          if (event.type === "result") {
+            foundResult = true; notes.set(url, event.result); renderNotes();
+            row.className = "progress-item done";
+            message.textContent = event.cached ? "Saved note reused" : "Note ready";
+          }
+        });
+        if (!foundResult) throw new Error("The server finished without returning a note.");
+        return notes.get(url);
+      } catch (error) {
+        row.className = "progress-item error"; message.textContent = error.message;
+        return null;
+      }
+    }
+    $("#process-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const urls = [...new Set($("#urls").value.split(/\r?\n/).map((url) => url.trim()).filter(Boolean))];
+      if (!urls.length) return showToast("Paste at least one Instagram reel link.");
+      $("#progress").replaceChildren(); const button = $("#process"); button.disabled = true;
+      const batch = [];
+      try {
+        for (const [index, url] of urls.entries()) {
+          const row = progressRow(url, index, urls.length);
+          row.querySelector(".message").textContent = `${index + 1} of ${urls.length} · starting`;
+          const result = await processOne(url, $("#model").value, row);
+          if (result) batch.push(result);
+        }
+        if (batch.length) {
+          latestBatch = batch;
+          $("#download-pdf").hidden = false;
+          showToast(`${batch.length} note${batch.length === 1 ? "" : "s"} ready.`);
+        }
+      } catch (error) { showToast(error.message); }
+      finally { button.disabled = false; }
+    });
+    $("#download-pdf").addEventListener("click", async () => {
+      const button = $("#download-pdf"); button.disabled = true;
+      try {
+        const response = await apiFetch("/api/pdf", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ results: latestBatch }),
+        });
+        const pdf = await response.blob(); const link = document.createElement("a");
+        link.href = URL.createObjectURL(pdf); link.download = "sales-reel-notes.pdf";
+        document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(link.href);
+      } catch (error) { showToast(error.message); }
+      finally { button.disabled = false; }
+    });
+    $("#login-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      sessionStorage.setItem("sales-notes-password", $("#password").value);
+      try { await loadNotes(); $("#login-overlay").hidden = true; }
+      catch (error) { showToast(error.message); sessionStorage.removeItem("sales-notes-password"); }
+    });
+    (async () => {
+      try {
+        const config = await (await fetch("/api/config")).json(); needsPassword = config.password_required;
+        if (needsPassword && !sessionStorage.getItem("sales-notes-password")) $("#login-overlay").hidden = false;
+        else await loadNotes();
+      } catch (error) { showToast(error.message); }
+    })();
+  </script>
+</body>
+</html>
